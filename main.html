@@ -1201,6 +1201,11 @@ body {
                 isVisible = true;
                 renderMenu();
                 updateScrollbar();
+                // Ensure scrolling happens after DOM update
+                setTimeout(() => {
+                    centerOnSelected();
+                    updateScrollbar();
+                }, 10);
             } else if (action === 'setTabs') {
                 previousTab = currentTab;
                 tabs = data.tabs || ['Main Menu'];
@@ -1209,7 +1214,12 @@ body {
             } else if (action === 'setTabIndex') {
                 previousTab = currentTab;
                 currentTab = data.index || 0;
-                renderTabs(); // â† Ù‡Ù†Ø§ Ø³ÙŠØªÙ… Ø¹Ø±Ø¶ Ø§Ù„ØªØ¨ÙˆÙŠØ¨ Ø§Ù„Ø¬Ø¯ÙŠØ¯ ÙˆØªÙ…Ø±ÙŠØ± Ø§Ù„Ø¹Ø±Ø¶ Ø¥Ù„ÙŠÙ‡
+                renderTabs();
+                // Scroll to selected item when tab changes
+                setTimeout(() => {
+                    centerOnSelected();
+                    updateScrollbar();
+                }, 10);
             } else if (action === 'setVisible') {
                 isVisible = data.visible !== undefined ? data.visible : true;
                 container.classList.toggle('show', isVisible);
@@ -1320,6 +1330,7 @@ body {
                 }
                 const menuItem = document.createElement('div');
                 menuItem.className = 'menu-item' + (index === currentIndex ? ' active' : '');
+                menuItem.setAttribute('data-index', index);
                 const label = document.createElement('span');
                 label.className = 'menu-item-label';
                 label.textContent = item.label || '';
@@ -1360,7 +1371,11 @@ body {
                 menuList.appendChild(menuItem);
             });
             updateCounter();
-            centerOnSelected();
+            // Use requestAnimationFrame to ensure DOM is ready before scrolling
+            requestAnimationFrame(() => {
+                centerOnSelected();
+                updateScrollbar();
+            });
         }
 
         function updateCounter() {
@@ -1374,14 +1389,27 @@ body {
         }
 
         function centerOnSelected() {
-            const items = menuList.querySelectorAll('.menu-item');
-            const activeItem = items[currentIndex];
-            if (activeItem) {
-                const itemTop = activeItem.offsetTop;
-                const itemHeight = activeItem.offsetHeight;
-                const listHeight = menuList.clientHeight;
+            // Find the active menu item
+            const activeItem = menuList.querySelector('.menu-item.active');
+            if (!activeItem) return;
+            
+            const itemTop = activeItem.offsetTop;
+            const itemHeight = activeItem.offsetHeight;
+            const listHeight = menuList.clientHeight;
+            const listScrollTop = menuList.scrollTop;
+            const itemBottom = itemTop + itemHeight;
+            const visibleTop = listScrollTop;
+            const visibleBottom = listScrollTop + listHeight;
+            
+            // Check if item is outside visible area or partially visible
+            if (itemTop < visibleTop || itemBottom > visibleBottom || 
+                (itemTop < visibleTop + 20) || (itemBottom > visibleBottom - 20)) {
+                // Center the item in the viewport with smooth scrolling
                 const targetScroll = itemTop - (listHeight / 2) + (itemHeight / 2);
-                menuList.scrollTop = Math.max(0, targetScroll);
+                menuList.scrollTo({
+                    top: Math.max(0, targetScroll),
+                    behavior: 'smooth'
+                });
             }
         }
 
